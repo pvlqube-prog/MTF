@@ -31,6 +31,9 @@ public sealed class Dashboard : Window
     private readonly TextBlock _latency = new();
     private readonly Button _refresh = new() { Content = "REFRESH DIAGNOSTICS", Padding = new Thickness(18, 10, 18, 10), Margin = new Thickness(0, 12, 10, 0) };
     private readonly Button _test = new() { Content = "RUN NETWORK TEST", Padding = new Thickness(18, 10, 18, 10), Margin = new Thickness(0, 12, 0, 0) };
+    private readonly ComboBox _gamePicker = new() { Width = 230, Padding = new Thickness(8), Margin = new Thickness(0, 8, 12, 8) };
+    private readonly TextBlock _gameDetails = new() { TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(215, 228, 247)), Margin = new Thickness(0, 8, 0, 10) };
+    private readonly Button _openGame = new() { Content = "OPEN GAME PLATFORM", Padding = new Thickness(14, 9, 14, 9), Margin = new Thickness(0, 4, 0, 0) };
 
     public Dashboard()
     {
@@ -60,6 +63,19 @@ public sealed class Dashboard : Window
         cards.Children.Add(Card("NETWORK ADAPTERS", _network));
         cards.Children.Add(Card("WI-FI DETAILS", _wifi));
         cards.Children.Add(Card("CONNECTIVITY TEST", _latency));
+        var gameHub = new StackPanel();
+        _gamePicker.ItemsSource = new[] { "Fortnite", "NBA 2K", "Valorant", "Rocket League", "Apex Legends", "Call of Duty", "Minecraft", "Roblox" };
+        _gamePicker.SelectedIndex = 0;
+        _gamePicker.SelectionChanged += (_, _) => UpdateGameProfile();
+        _openGame.Click += (_, _) => OpenGamePlatform();
+        gameHub.Children.Add(new TextBlock { Text = "Choose a game to see focused setup tips and open its game platform.", Foreground = Brush("#91A5C4"), TextWrapping = TextWrapping.Wrap });
+        gameHub.Children.Add(_gamePicker);
+        gameHub.Children.Add(_gameDetails);
+        gameHub.Children.Add(_openGame);
+        cards.Children.Add(Card("GAME CENTER  /  FORTNITE + NBA 2K", new TextBlock()));
+        var gameCard = (Border)cards.Children[cards.Children.Count - 1];
+        gameCard.Child = gameHub;
+        UpdateGameProfile();
         cards.Children.Add(new TextBlock { Text = "QUBE TUNE only reads system and network information. It does not change Windows settings, route game traffic, or guarantee lower ping/FPS gains.", TextWrapping = TextWrapping.Wrap, Foreground = Brush("#91A5C4"), Margin = new Thickness(2, 14, 2, 0), FontSize = 12 });
 
         _refresh.Click += async (_, _) => await RefreshAll();
@@ -75,6 +91,42 @@ public sealed class Dashboard : Window
         body.FontSize = 13; body.Foreground = Brush("#D7E4F7"); body.TextWrapping = TextWrapping.Wrap;
         panel.Children.Add(body);
         return new Border { Background = Brush("#111B2B"), BorderBrush = Brush("#24344D"), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(18), Margin = new Thickness(0, 0, 0, 12), Child = panel };
+    }
+
+    private void UpdateGameProfile()
+    {
+        var game = _gamePicker.SelectedItem?.ToString() ?? "Fortnite";
+        _gameDetails.Text = game switch
+        {
+            "Fortnite" => "FORTNITE COMPETITIVE PROFILE\\n• Check in-game Performance Mode and resolution settings.\\n• Close unnecessary background apps before launching.\\n• Use the network test to check packet loss and connection variation.\\n• Compare frame pacing in a repeatable Creative session; this app does not alter Fortnite files.",
+            "NBA 2K" => "NBA 2K PROFILE\\n• Check the game's display mode, resolution and frame-rate options.\\n• Use a wired connection when practical for online play.\\n• Run the network test before online matches; this is not 2K server latency.\\n• Keep graphics drivers and Windows updates current.",
+            "Valorant" => "VALORANT PROFILE\\n• Prioritize consistent frame times and a stable refresh-rate setting.\\n• Close heavy background downloads before playing.\\n• Check packet loss and network variation with the diagnostics panel.",
+            "Rocket League" => "ROCKET LEAGUE PROFILE\\n• Keep frame rate consistent with your display settings.\\n• Check network stability before competitive sessions.\\n• Avoid running unnecessary overlays and background capture tools.",
+            "Apex Legends" => "APEX LEGENDS PROFILE\\n• Review resolution and graphics options in-game.\\n• Monitor CPU load and available memory while playing.\\n• Check connection stability; results here are not Apex server ping.",
+            "Call of Duty" => "CALL OF DUTY PROFILE\\n• Review in-game display and graphics settings.\\n• Allow shader compilation to finish before judging performance.\\n• Check network stability before online sessions.",
+            "Minecraft" => "MINECRAFT PROFILE\\n• Review render distance and graphics settings in-game.\\n• Keep modpacks and resource packs appropriate for your PC.\\n• Check memory availability before launching large modpacks.",
+            _ => "ROBLOX PROFILE\\n• Close unneeded background applications.\\n• Check network stability and use in-game graphics settings appropriate for your PC."
+        };
+        _openGame.Content = game == "Fortnite" || game == "Rocket League" ? "OPEN EPIC GAMES" :
+            game == "NBA 2K" || game == "Apex Legends" || game == "Call of Duty" ? "OPEN STEAM LIBRARY" :
+            game == "Valorant" ? "OPEN VALORANT WEBSITE" :
+            game == "Minecraft" ? "OPEN MINECRAFT WEBSITE" : "OPEN ROBLOX WEBSITE";
+    }
+
+    private void OpenGamePlatform()
+    {
+        var game = _gamePicker.SelectedItem?.ToString() ?? "Fortnite";
+        var target = game switch
+        {
+            "Fortnite" => "com.epicgames.launcher://apps/Fortnite?action=launch&silent=true",
+            "Rocket League" => "com.epicgames.launcher://apps/Sugar?action=launch&silent=true",
+            "NBA 2K" or "Apex Legends" or "Call of Duty" => "steam://open/library",
+            "Valorant" => "https://playvalorant.com/",
+            "Minecraft" => "https://www.minecraft.net/",
+            _ => "https://www.roblox.com/"
+        };
+        try { Process.Start(new ProcessStartInfo(target) { UseShellExecute = true }); _status.Text = "Opened platform link for " + game + "."; }
+        catch (Exception ex) { _status.Text = "Could not open platform link: " + ex.Message; }
     }
 
     private async Task RefreshAll()
