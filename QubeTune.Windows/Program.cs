@@ -7,6 +7,8 @@ using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using LibreHardwareMonitor.Hardware;
+using System.Net.Http;
 
 namespace QubeTune;
 
@@ -30,6 +32,10 @@ public sealed class Dashboard : Window
     private readonly TextBlock _network = new();
     private readonly TextBlock _wifi = new();
     private readonly TextBlock _latency = new();
+    private readonly TextBlock _thermals = new();
+    private readonly TextBlock _speed = new();
+    private readonly Computer _computer = new() { IsCpuEnabled = true, IsGpuEnabled = true };
+    private readonly DispatcherTimer _sensorTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly Button _refresh = new() { Content = "REFRESH DIAGNOSTICS", Padding = new Thickness(18, 10, 18, 10), Margin = new Thickness(0, 12, 10, 0) };
     private readonly Button _test = new() { Content = "RUN NETWORK TEST", Padding = new Thickness(18, 10, 18, 10), Margin = new Thickness(0, 12, 0, 0) };
     private readonly ComboBox _gamePicker = new() { Width = 230, Padding = new Thickness(8), Margin = new Thickness(0, 8, 12, 8) };
@@ -63,6 +69,8 @@ public sealed class Dashboard : Window
         cards.Children.Add(Card("SYSTEM", _system));
         cards.Children.Add(Card("NETWORK ADAPTERS", _network));
         cards.Children.Add(Card("WI-FI DETAILS", _wifi));
+        cards.Children.Add(Card("CPU & GPU THERMALS", _thermals));
+        cards.Children.Add(Card("INTERNET SPEED TEST", _speed));
         cards.Children.Add(Card("CONNECTIVITY TEST", _latency));
         var gameHub = new StackPanel();
         _gamePicker.ItemsSource = new[] { "Fortnite", "NBA 2K", "Valorant", "Rocket League", "Apex Legends", "Call of Duty", "Minecraft", "Roblox" };
@@ -79,8 +87,15 @@ public sealed class Dashboard : Window
         UpdateGameProfile();
         cards.Children.Add(new TextBlock { Text = "QUBE TUNE only reads system and network information. It does not change Windows settings, route game traffic, or guarantee lower ping/FPS gains.", TextWrapping = TextWrapping.Wrap, Foreground = Brush("#91A5C4"), Margin = new Thickness(2, 14, 2, 0), FontSize = 12 });
 
+        _computer.Open();
+        _sensorTimer.Tick += (_, _) => RefreshThermals();
+        _sensorTimer.Start();
+        RefreshThermals();
         _refresh.Click += async (_, _) => await RefreshAll();
         _test.Click += async (_, _) => await RunNetworkTest();
+        var speedButton = new Button { Content = "RUN REAL INTERNET SPEED TEST", Padding = new Thickness(18, 10, 18, 10), Margin = new Thickness(0, 8, 0, 0) };
+        speedButton.Click += async (_, _) => await RunSpeedTest();
+        ((StackPanel)((Border)cards.Children[5]).Child).Children.Add(speedButton);
         Loaded += async (_, _) => await RefreshAll();
     }
 
@@ -174,6 +189,61 @@ public sealed class Dashboard : Window
             return lines.Length == 0 ? "No connected Wi-Fi interface details found." : string.Join("\n", lines);
         }
         catch { return "Wi-Fi details are unavailable on this Windows configuration."; }
+    }
+
+    private void RefreshThermals()
+    {
+        try
+        {
+            var readings = new List<string>();
+            foreach (var hw in _computer.Hardware)
+            {
+                hw.Update();
+                foreach (var sub in hw.SubHardware) sub.Update();
+                var sensors = hw.Sensors.Concat(hw.SubHardware.SelectMany(x => x.Sensors));
+                var temps = sensors.Where(s => s.SensorType == SensorType.Temperature && s.Value.HasValue)
+                    .Select(s => $"{s.Name}: {s.Value!.Value:F0}°C").ToArray();
+                if (temps.Length > 0 && (hw.HardwareType == HardwareType.Cpu ||
+                    hw.HardwareType == HardwareType.GpuNvidia || hw.HardwareType == HardwareType.GpuAmd ||
+                    hw.HardwareType == HardwareType.GpuIntel))
+                    readings.Add(hw.Name + "\\n  " + string.Join("  |  ", temps));
+            }
+            _thermals.Text = readings.Count == 0
+                ? "No supported temperature sensors detected. Sensor availability depends on your hardware and permissions."
+                : string.Join("\\n\\n", readings);
+        }
+        catch (Exception ex) { _thermals.Text = "Hardware sensor read unavailable: " + ex.Message; }
+    }
+
+    private async Task RunSpeedTest()
+    {
+        _speed.Text = "Testing download and upload throughput to Cloudflare…";
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("QUBE-TUNE/0.1");
+            const int downloadBytes = 12_000_000;
+            var watch = Stopwatch.StartNew();
+            using var response = await client.GetAsync("https://speed.cloudflare.com/__down?bytes=" + downloadBytes, HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+            await using (var stream = await response.Content.ReadAsStreamAsync())
+            {
+                var buffer = new byte[64 * 1024]; long total = 0; int read;
+                while ((read = await stream.ReadAsync(buffer)) > 0) total += read;
+                watch.Stop();
+                var down = total * 8d / watch.Elapsed.TotalSeconds / 1_000_000;
+                _speed.Text = $"Download: {down:F1} Mbps\\nUpload: testing…";
+                var payload = new byte[4_000_000];
+                Random.Shared.NextBytes(payload);
+                watch.Restart();
+                using var upload = await client.PostAsync("https://speed.cloudflare.com/__up", new ByteArrayContent(payload));
+                upload.EnsureSuccessStatusCode();
+                watch.Stop();
+                var up = payload.Length * 8d / watch.Elapsed.TotalSeconds / 1_000_000;
+                _speed.Text = $"Download: {down:F1} Mbps\\nUpload: {up:F1} Mbps\\nTest endpoint: Cloudflare • results vary with Wi-Fi, server load and route.";
+            }
+        }
+        catch (Exception ex) { _speed.Text = "Speed test failed: " + ex.Message; }
     }
 
     private async Task RunNetworkTest()
