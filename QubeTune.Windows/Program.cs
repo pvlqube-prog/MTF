@@ -98,14 +98,14 @@ public sealed class Dashboard : Window
         var game = _gamePicker.SelectedItem?.ToString() ?? "Fortnite";
         _gameDetails.Text = game switch
         {
-            "Fortnite" => "FORTNITE COMPETITIVE PROFILE\\n• Check in-game Performance Mode and resolution settings.\\n• Close unnecessary background apps before launching.\\n• Use the network test to check packet loss and connection variation.\\n• Compare frame pacing in a repeatable Creative session; this app does not alter Fortnite files.",
-            "NBA 2K" => "NBA 2K PROFILE\\n• Check the game's display mode, resolution and frame-rate options.\\n• Use a wired connection when practical for online play.\\n• Run the network test before online matches; this is not 2K server latency.\\n• Keep graphics drivers and Windows updates current.",
-            "Valorant" => "VALORANT PROFILE\\n• Prioritize consistent frame times and a stable refresh-rate setting.\\n• Close heavy background downloads before playing.\\n• Check packet loss and network variation with the diagnostics panel.",
-            "Rocket League" => "ROCKET LEAGUE PROFILE\\n• Keep frame rate consistent with your display settings.\\n• Check network stability before competitive sessions.\\n• Avoid running unnecessary overlays and background capture tools.",
-            "Apex Legends" => "APEX LEGENDS PROFILE\\n• Review resolution and graphics options in-game.\\n• Monitor CPU load and available memory while playing.\\n• Check connection stability; results here are not Apex server ping.",
-            "Call of Duty" => "CALL OF DUTY PROFILE\\n• Review in-game display and graphics settings.\\n• Allow shader compilation to finish before judging performance.\\n• Check network stability before online sessions.",
-            "Minecraft" => "MINECRAFT PROFILE\\n• Review render distance and graphics settings in-game.\\n• Keep modpacks and resource packs appropriate for your PC.\\n• Check memory availability before launching large modpacks.",
-            _ => "ROBLOX PROFILE\\n• Close unneeded background applications.\\n• Check network stability and use in-game graphics settings appropriate for your PC."
+            "Fortnite" => "FORTNITE COMPETITIVE PROFILE\n• Check in-game Performance Mode and resolution settings.\n• Close unnecessary background apps before launching.\n• Use the network test to check packet loss and connection variation.\n• Compare frame pacing in a repeatable Creative session; this app does not alter Fortnite files.",
+            "NBA 2K" => "NBA 2K PROFILE\n• Check the game's display mode, resolution and frame-rate options.\n• Use a wired connection when practical for online play.\n• Run the network test before online matches; this is not 2K server latency.\n• Keep graphics drivers and Windows updates current.",
+            "Valorant" => "VALORANT PROFILE\n• Prioritize consistent frame times and a stable refresh-rate setting.\n• Close heavy background downloads before playing.\n• Check packet loss and network variation with the diagnostics panel.",
+            "Rocket League" => "ROCKET LEAGUE PROFILE\n• Keep frame rate consistent with your display settings.\n• Check network stability before competitive sessions.\n• Avoid running unnecessary overlays and background capture tools.",
+            "Apex Legends" => "APEX LEGENDS PROFILE\n• Review resolution and graphics options in-game.\n• Monitor CPU load and available memory while playing.\n• Check connection stability; results here are not Apex server ping.",
+            "Call of Duty" => "CALL OF DUTY PROFILE\n• Review in-game display and graphics settings.\n• Allow shader compilation to finish before judging performance.\n• Check network stability before online sessions.",
+            "Minecraft" => "MINECRAFT PROFILE\n• Review render distance and graphics settings in-game.\n• Keep modpacks and resource packs appropriate for your PC.\n• Check memory availability before launching large modpacks.",
+            _ => "ROBLOX PROFILE\n• Close unneeded background applications.\n• Check network stability and use in-game graphics settings appropriate for your PC."
         };
         _openGame.Content = game == "Fortnite" || game == "Rocket League" ? "OPEN EPIC GAMES" :
             game == "NBA 2K" || game == "Apex Legends" || game == "Call of Duty" ? "OPEN STEAM LIBRARY" :
