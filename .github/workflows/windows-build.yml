@@ -20,6 +20,10 @@ jobs:
           dotnet-version: 8.0.x
       - name: Publish self-contained Windows x64 app
         run: dotnet publish QubeTune.Windows/QubeTune.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/QubeTune-win-x64
+      - name: Bundle official PresentMon frame capture tool
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/GameTechDev/PresentMon/releases/download/v2.6.0/PresentMon-2.6.0-x64.exe" -OutFile "artifacts/QubeTune-win-x64/PresentMon.exe"
       - name: Upload Windows executable
         uses: actions/upload-artifact@v4
         with:
