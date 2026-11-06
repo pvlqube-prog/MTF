@@ -95,7 +95,7 @@ public sealed class Dashboard : Window
         _test.Click += async (_, _) => await RunNetworkTest();
         var speedButton = new Button { Content = "RUN REAL INTERNET SPEED TEST", Padding = new Thickness(18, 10, 18, 10), Margin = new Thickness(0, 8, 0, 0) };
         speedButton.Click += async (_, _) => await RunSpeedTest();
-        ((StackPanel)((Border)cards.Children[5]).Child).Children.Add(speedButton);
+        ((StackPanel)((Border)cards.Children[4]).Child).Children.Add(speedButton);
         Loaded += async (_, _) => await RefreshAll();
     }
 
@@ -271,7 +271,7 @@ public sealed class Dashboard : Window
         finally { _test.IsEnabled = true; }
     }
 
-    private static async Task<double> ReadCpuUsage()
+    protected override void OnClosed(EventArgs e)\n    {\n        _sensorTimer.Stop();\n        _computer.Close();\n        base.OnClosed(e);\n    }\n\n    private static async Task<double> ReadCpuUsage()
     {
         GetSystemTimes(out var idle1, out var kernel1, out var user1);
         await Task.Delay(500);
