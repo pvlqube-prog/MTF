@@ -9,4 +9,4 @@
     <RootNamespace>QubeTune</RootNamespace>
     <Version>0.1.0</Version>
   </PropertyGroup>
-</Project>
+  <ItemGroup>\n    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />\n  </ItemGroup>\n</Project>
