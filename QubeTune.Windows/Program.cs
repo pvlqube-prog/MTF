@@ -34,6 +34,8 @@ public sealed class Dashboard : Window
     private readonly TextBlock _latency = new();
     private readonly TextBlock _thermals = new();
     private readonly TextBlock _speed = new();
+    private readonly TextBlock _fps = new();
+    private readonly Button _captureFps = new() { Content = "CAPTURE GAME FPS (30 SEC)", Padding = new Thickness(14, 9, 14, 9), Margin = new Thickness(0, 4, 0, 0) };
     private readonly Computer _computer = new() { IsCpuEnabled = true, IsGpuEnabled = true };
     private readonly DispatcherTimer _sensorTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private readonly Button _refresh = new() { Content = "REFRESH DIAGNOSTICS", Padding = new Thickness(18, 10, 18, 10), Margin = new Thickness(0, 12, 10, 0) };
@@ -81,6 +83,9 @@ public sealed class Dashboard : Window
         gameHub.Children.Add(_gamePicker);
         gameHub.Children.Add(_gameDetails);
         gameHub.Children.Add(_openGame);
+        gameHub.Children.Add(_fps);
+        gameHub.Children.Add(_captureFps);
+        _captureFps.Click += async (_, _) => await CaptureGameFps();
         cards.Children.Add(Card("GAME CENTER  /  FORTNITE + NBA 2K", new TextBlock()));
         var gameCard = (Border)cards.Children[cards.Children.Count - 1];
         gameCard.Child = gameHub;
@@ -127,6 +132,59 @@ public sealed class Dashboard : Window
             game == "NBA 2K" || game == "Apex Legends" || game == "Call of Duty" ? "OPEN STEAM LIBRARY" :
             game == "Valorant" ? "OPEN VALORANT WEBSITE" :
             game == "Minecraft" ? "OPEN MINECRAFT WEBSITE" : "OPEN ROBLOX WEBSITE";
+    }
+
+    private async Task CaptureGameFps()
+    {
+        var game = _gamePicker.SelectedItem?.ToString() ?? "Fortnite";
+        var processNames = game switch
+        {
+            "Fortnite" => new[] { "FortniteClient-Win64-Shipping" },
+            "NBA 2K" => new[] { "NBA2K26", "NBA2K25", "NBA2K24", "NBA2K" },
+            "Valorant" => new[] { "VALORANT-Win64-Shipping" },
+            "Rocket League" => new[] { "RocketLeague" },
+            "Apex Legends" => new[] { "r5apex" },
+            "Call of Duty" => new[] { "cod", "cod23", "cod24", "cod25" },
+            "Minecraft" => new[] { "Minecraft.Windows", "javaw" },
+            _ => new[] { "RobloxPlayerBeta" }
+        };
+        var running = Process.GetProcesses().Select(p => { try { return p.ProcessName; } catch { return ""; } }).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var target = processNames.FirstOrDefault(running.Contains);
+        if (target is null) { _fps.Text = $"{game} not detected. Start it, enter gameplay, then retry."; return; }
+        var tool = Path.Combine(AppContext.BaseDirectory, "PresentMon.exe");
+        if (!File.Exists(tool)) { _fps.Text = "FPS capture component is missing. Reinstall QUBE TUNE."; return; }
+        _captureFps.IsEnabled = false;
+        var output = Path.Combine(Path.GetTempPath(), $"QubeTune-{Guid.NewGuid():N}.csv");
+        _fps.Text = $"Capturing {game} frame timings for 30 seconds…";
+        try
+        {
+            var start = new ProcessStartInfo(tool) {
+                UseShellExecute = false, CreateNoWindow = true,
+                Arguments = $"--process_name \"{target}.exe\" --output_file \"{output}\" --timed 30 --terminate_after_timed"
+            };
+            using var capture = Process.Start(start) ?? throw new InvalidOperationException("PresentMon could not start.");
+            await capture.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45));
+            if (!File.Exists(output)) throw new InvalidOperationException("No frame data was created. Keep the game open and retry.");
+            var lines = await File.ReadAllLinesAsync(output);
+            if (lines.Length < 3) throw new InvalidOperationException("Not enough frame samples were captured.");
+            var headers = lines[0].Split(',');
+            var index = Array.FindIndex(headers, h => h.Trim().Equals("MsBetweenPresents", StringComparison.OrdinalIgnoreCase));
+            if (index < 0) throw new InvalidOperationException("PresentMon did not return frame-time data.");
+            var values = new List<double>();
+            foreach (var line in lines.Skip(1))
+            {
+                var parts = line.Split(',');
+                if (parts.Length > index && double.TryParse(parts[index].Trim().Trim('"'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var ms) && ms > 0 && ms < 1000)
+                    values.Add(ms);
+            }
+            if (values.Count < 10) throw new InvalidOperationException("Not enough valid frame samples.");
+            values.Sort();
+            var averageFps = 1000d / values.Average();
+            var p99 = values[(int)Math.Clamp(Math.Ceiling(values.Count * .99) - 1, 0, values.Count - 1)];
+            _fps.Text = $"LAST CAPTURE • {game}\nAverage FPS: {averageFps:F0}\n1% low estimate: {1000d / p99:F0} FPS\nFrames sampled: {values.Count} • 30 seconds";
+        }
+        catch (Exception ex) { _fps.Text = "FPS capture unavailable: " + ex.Message; }
+        finally { _captureFps.IsEnabled = true; try { if (File.Exists(output)) File.Delete(output); } catch { } }
     }
 
     private void OpenGamePlatform()
@@ -271,7 +329,14 @@ public sealed class Dashboard : Window
         finally { _test.IsEnabled = true; }
     }
 
-    protected override void OnClosed(EventArgs e)\n    {\n        _sensorTimer.Stop();\n        _computer.Close();\n        base.OnClosed(e);\n    }\n\n    private static async Task<double> ReadCpuUsage()
+    protected override void OnClosed(EventArgs e)
+    {
+        _sensorTimer.Stop();
+        _computer.Close();
+        base.OnClosed(e);
+    }
+
+    private static async Task<double> ReadCpuUsage()
     {
         GetSystemTimes(out var idle1, out var kernel1, out var user1);
         await Task.Delay(500);
