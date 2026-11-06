@@ -12,7 +12,7 @@ namespace QubeTune;
 public sealed class QubeApp : Application
 {
     [STAThread]
-    public static void Main() => new QubeApp().Run(new Dashboard());
+    public static void Main() => new QubeApp().Run();
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -95,7 +95,7 @@ public sealed class Dashboard : Window
                     return $"{n.Name}  [{n.NetworkInterfaceType}]  {n.OperationalStatus}\n  Speed: {(n.Speed > 0 ? $"{n.Speed / 1_000_000} Mbps" : "Unavailable")}\n  IP: {string.Join(", ", ips)}\n  Gateway: {string.Join(", ", gateways)}\n  DNS: {string.Join(", ", dns)}";
                 }).ToArray();
 
-            var mem = new MemoryStatus(); GlobalMemoryStatusEx(ref mem);
+            var mem = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() }; GlobalMemoryStatusEx(ref mem);
             var drive = DriveInfo.GetDrives().FirstOrDefault(d => d.IsReady && d.Name.StartsWith(Environment.GetFolderPath(Environment.SpecialFolder.Windows)[..1], StringComparison.OrdinalIgnoreCase));
             var cpu = await cpuTask;
             _system.Text = $"Computer: {Environment.MachineName}\nWindows: {Environment.OSVersion}\nProcessor: {Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "Windows processor"}\nCPU usage (sample): {cpu:F0}%\nMemory: {(mem.TotalPhys - mem.AvailPhys) / 1024d / 1024 / 1024:F1} GB used / {mem.TotalPhys / 1024d / 1024 / 1024:F1} GB total\nSystem drive: {(drive is null ? "Unavailable" : $"{drive.Name} {drive.AvailableFreeSpace / 1024d / 1024 / 1024:F1} GB free / {drive.TotalSize / 1024d / 1024 / 1024:F1} GB")}";
